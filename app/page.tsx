@@ -2,17 +2,21 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 
-type ShapeType = 'circle' | 'square' | 'triangle' | 'pentagram' | 'hexagram';
-type ColorPalette = string[];
+// Updated ShapeType to include new alchemical shapes
+type ShapeType = 'circle' | 'square' | 'triangle' | 'waterTriangle' | 'pentagram' | 'hexagram' | 'philosopherStone';
 
-const SHAPES: ShapeType[] = ['circle', 'square', 'triangle', 'pentagram', 'hexagram'];
-const COLOR_PALETTE: ColorPalette = [
-  '#e8c547ff', '#30323dff', '#4d5061ff', '#fe5f55ff',
-  '#fceff9ff', '#f6ca83ff', '#f5d6baff', '#fff', '#000'
+// Define alchemical stages with corresponding color palettes
+const ALCHEMICAL_STAGES = [
+  { name: 'nigredo', colors: ['#000000', '#1a1a1a', '#333333'] },
+  { name: 'albedo', colors: ['#ffffff', '#f0f0f0', '#e0e0e0'] },
+  { name: 'citrinitas', colors: ['#ffd700', '#ffec8b', '#f0e68c'] },
+  { name: 'rubedo', colors: ['#ff0000', '#dc143c', '#b22222'] },
 ];
+
+const SHAPES: ShapeType[] = ['circle', 'square', 'triangle', 'waterTriangle', 'pentagram', 'hexagram', 'philosopherStone'];
 const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double'];
 
-// Add easing functions for smoother transitions
+// Easing functions for transitions
 const EASING = {
   easeOutElastic: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
   easeOutBack: 'cubic-bezier(0.34, 1.3, 0.64, 1)',
@@ -34,86 +38,89 @@ export default function AlchemyShapes() {
   const [currentShape, setCurrentShape] = useState<ShapeType>('circle');
   const [previousShape, setPreviousShape] = useState<ShapeType>('circle');
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [currentStage, setCurrentStage] = useState(0); // Track the current alchemical stage
   const [style, setStyle] = useState<ShapeStyle>({
-    backgroundColor: '#e8c547ff',
-    borderColor: '#30323dff',
+    backgroundColor: ALCHEMICAL_STAGES[0].colors[0], // Start with nigredo
+    borderColor: ALCHEMICAL_STAGES[0].colors[1],
     borderWidth: 4,
     borderStyle: 'solid',
     size: 300,
     rotation: 0,
-    scale: 1
+    scale: 1,
   });
-  
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const generateRandomStyle = useCallback(() => {
     setPreviousShape(currentShape);
     setIsTransitioning(true);
-    
-    // First create a shrinking effect
-    setStyle(prev => ({
+
+    // Shrink the shape
+    setStyle((prev) => ({
       ...prev,
       scale: 0.5,
       rotation: prev.rotation + 180,
     }));
-    
-    // Then after a delay, switch the shape and expand
+
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    
+
     timeoutRef.current = setTimeout(() => {
       const newShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const stageColors = ALCHEMICAL_STAGES[currentStage].colors;
       const newStyle = {
-        backgroundColor: COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)],
-        borderColor: COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)],
+        backgroundColor: stageColors[Math.floor(Math.random() * stageColors.length)],
+        borderColor: stageColors[Math.floor(Math.random() * stageColors.length)],
         borderWidth: Math.floor(Math.random() * 12) + 1,
         borderStyle: BORDER_STYLES[Math.floor(Math.random() * BORDER_STYLES.length)],
         size: Math.floor(Math.random() * 200) + 200,
         rotation: Math.floor(Math.random() * 360),
-        scale: 1
+        scale: 1,
       };
-      
+
       setCurrentShape(newShape);
       setStyle(newStyle);
-      localStorage.setItem('alchemyStyle', JSON.stringify({...newStyle, shape: newShape}));
-      
+      localStorage.setItem('alchemyStyle', JSON.stringify({ ...newStyle, shape: newShape }));
+      setCurrentStage((prev) => (prev + 1) % ALCHEMICAL_STAGES.length); // Move to next stage
+
       setTimeout(() => {
         setIsTransitioning(false);
       }, 500);
     }, 300);
-  }, [currentShape]);
+  }, [currentShape, currentStage]);
 
-  const changeShapeOnly = useCallback((e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    
-    setPreviousShape(currentShape);
-    setIsTransitioning(true);
-    
-    // Create shrinking effect first
-    setStyle(prev => ({
-      ...prev,
-      scale: 0.5,
-      rotation: prev.rotation + 90,
-    }));
-    
-    // After delay, change shape and expand
-    setTimeout(() => {
-      const nextShape = SHAPES[(SHAPES.indexOf(currentShape) + 1) % SHAPES.length];
-      setCurrentShape(nextShape);
-      
-      setStyle(prev => ({
+  const changeShapeOnly = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
+
+      setPreviousShape(currentShape);
+      setIsTransitioning(true);
+
+      setStyle((prev) => ({
         ...prev,
-        scale: 1,
+        scale: 0.5,
+        rotation: prev.rotation + 90,
       }));
-      
-      localStorage.setItem('alchemyStyle', JSON.stringify({...style, shape: nextShape}));
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 500);
-    }, 300);
-  }, [currentShape, style]);
 
-  // Load saved style
+      setTimeout(() => {
+        const nextShape = SHAPES[(SHAPES.indexOf(currentShape) + 1) % SHAPES.length];
+        setCurrentShape(nextShape);
+
+        setStyle((prev) => ({
+          ...prev,
+          scale: 1,
+        }));
+
+        localStorage.setItem('alchemyStyle', JSON.stringify({ ...style, shape: nextShape }));
+
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 500);
+      }, 300);
+    },
+    [currentShape, style]
+  );
+
+  // Load saved style on mount
   useEffect(() => {
     const savedStyle = localStorage.getItem('alchemyStyle');
     if (savedStyle) {
@@ -121,12 +128,12 @@ export default function AlchemyShapes() {
       setStyle({
         ...parsedStyle,
         rotation: parsedStyle.rotation || 0,
-        scale: parsedStyle.scale || 1
+        scale: parsedStyle.scale || 1,
       });
       setCurrentShape(parsedStyle.shape || 'circle');
       setPreviousShape(parsedStyle.shape || 'circle');
     }
-    
+
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
@@ -135,7 +142,7 @@ export default function AlchemyShapes() {
   // Swipe handling
   useEffect(() => {
     let touchStartX = 0;
-    
+
     const handleTouchStart = (e: TouchEvent) => {
       touchStartX = e.touches[0].clientX;
     };
@@ -157,13 +164,13 @@ export default function AlchemyShapes() {
   }, [generateRandomStyle]);
 
   const renderShape = () => {
-    const transitionStyle = isTransitioning 
-      ? `${EASING.easeOutBack} 0.5s` 
+    const transitionStyle = isTransitioning
+      ? `${EASING.easeOutBack} 0.5s`
       : `${EASING.easeOutElastic} 0.8s`;
-      
+
     const baseClasses = "transition-all ease-in-out transform";
-    
-    const commonStyle = { 
+
+    const commonStyle = {
       backgroundColor: style.backgroundColor,
       border: `${style.borderWidth}px ${style.borderStyle} ${style.borderColor}`,
       width: style.size,
@@ -171,7 +178,7 @@ export default function AlchemyShapes() {
       transform: `rotate(${style.rotation}deg) scale(${style.scale})`,
       transition: `transform ${transitionStyle}, background-color 0.5s, border 0.5s, width 0.7s, height 0.7s`,
     };
-    
+
     switch (currentShape) {
       case 'circle':
         return <div className={`rounded-full ${baseClasses}`} style={commonStyle} />;
@@ -183,6 +190,19 @@ export default function AlchemyShapes() {
             <svg width="100%" height="100%" viewBox="0 0 100 100">
               <polygon
                 points="50,10 90,90 10,90"
+                fill={style.backgroundColor}
+                stroke={style.borderColor}
+                strokeWidth={style.borderWidth}
+              />
+            </svg>
+          </div>
+        );
+      case 'waterTriangle':
+        return (
+          <div className={`relative ${baseClasses}`} style={{ ...commonStyle, backgroundColor: 'transparent' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <polygon
+                points="50,90 90,10 10,10"
                 fill={style.backgroundColor}
                 stroke={style.borderColor}
                 strokeWidth={style.borderWidth}
@@ -223,6 +243,19 @@ export default function AlchemyShapes() {
             </svg>
           </div>
         );
+      case 'philosopherStone':
+        return (
+          <div className={`relative rounded-full ${baseClasses}`} style={commonStyle}>
+            <div
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                width: style.size / 10,
+                height: style.size / 10,
+                backgroundColor: style.borderColor,
+              }}
+            />
+          </div>
+        );
       default:
         return null;
     }
@@ -230,16 +263,12 @@ export default function AlchemyShapes() {
 
   return (
     <main className="min-h-screen bg-[#30323dff] flex items-center justify-center p-4">
-      <div 
-        className="relative cursor-pointer"
-        onClick={generateRandomStyle}
-      >
+      <div className="relative cursor-pointer" onClick={generateRandomStyle}>
         <div className="relative overflow-visible flex items-center justify-center">
-          {/* Particle effects during transition */}
           {isTransitioning && (
             <div className="absolute inset-0 pointer-events-none">
               {[...Array(8)].map((_, i) => (
-                <div 
+                <div
                   key={i}
                   className="absolute w-3 h-3 rounded-full"
                   style={{
@@ -248,37 +277,16 @@ export default function AlchemyShapes() {
                     top: `${50 + Math.sin(i * Math.PI / 4) * 150}%`,
                     opacity: 0,
                     transform: 'scale(0)',
-                    animation: `particle 0.8s ease-out ${i * 0.05}s`
+                    animation: `particle 0.8s ease-out ${i * 0.05}s`,
                   }}
                 />
               ))}
             </div>
           )}
-          
           {renderShape()}
         </div>
-        
-        {/* Control Bar */}
-        <div className="absolute bottom-[-60px] left-1/2 transform -translate-x-1/2 flex gap-4">
-          <button
-            onClick={changeShapeOnly}
-            className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70 transition-colors"
-          >
-            Change Shape
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              generateRandomStyle();
-            }}
-            className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70 transition-colors"
-          >
-            Randomize All
-          </button>
-        </div>
       </div>
-      
-      {/* Add CSS for the particle animation */}
+
       <style jsx>{`
         @keyframes particle {
           0% {
