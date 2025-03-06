@@ -49,6 +49,19 @@ export default function AlchemyShapes() {
     scale: 1,
   });
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullScreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+  
+
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const generateRandomStyle = useCallback(() => {
@@ -263,7 +276,17 @@ export default function AlchemyShapes() {
 
   return (
     <main className="min-h-screen bg-[#30323dff] flex items-center justify-center p-4">
-      <div className="relative cursor-pointer" onClick={generateRandomStyle}>
+       <button
+              className="absolute top-4 right-4 text-black px-4 py-2 rounded"
+              onClick={toggleFullScreen}
+              aria-label="Toggle fullscreen"
+              style={{ color: `var(${style.borderColor})` }} // Apply dynamic font color
+            >
+              ⛶
+            </button>
+
+      <div ref={containerRef} className="relative cursor-pointer" onClick={generateRandomStyle}>
+
         <div className="relative overflow-visible flex items-center justify-center">
           {isTransitioning && (
             <div className="absolute inset-0 pointer-events-none">
@@ -286,6 +309,7 @@ export default function AlchemyShapes() {
           {renderShape()}
         </div>
       </div>
+      
 
       <style jsx>{`
         @keyframes particle {
