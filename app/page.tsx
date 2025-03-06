@@ -1,101 +1,299 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useCallback, useRef } from "react";
+
+type ShapeType = 'circle' | 'square' | 'triangle' | 'pentagram' | 'hexagram';
+type ColorPalette = string[];
+
+const SHAPES: ShapeType[] = ['circle', 'square', 'triangle', 'pentagram', 'hexagram'];
+const COLOR_PALETTE: ColorPalette = [
+  '#e8c547ff', '#30323dff', '#4d5061ff', '#fe5f55ff',
+  '#fceff9ff', '#f6ca83ff', '#f5d6baff', '#fff', '#000'
+];
+const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double'];
+
+// Add easing functions for smoother transitions
+const EASING = {
+  easeOutElastic: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  easeOutBack: 'cubic-bezier(0.34, 1.3, 0.64, 1)',
+  easeInOutQuad: 'cubic-bezier(0.45, 0, 0.55, 1)',
+};
+
+interface ShapeStyle {
+  backgroundColor: string;
+  borderColor: string;
+  borderWidth: number;
+  borderStyle: string;
+  size: number;
+  shape?: ShapeType;
+  rotation: number;
+  scale: number;
+}
+
+export default function AlchemyShapes() {
+  const [currentShape, setCurrentShape] = useState<ShapeType>('circle');
+  const [previousShape, setPreviousShape] = useState<ShapeType>('circle');
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [style, setStyle] = useState<ShapeStyle>({
+    backgroundColor: '#e8c547ff',
+    borderColor: '#30323dff',
+    borderWidth: 4,
+    borderStyle: 'solid',
+    size: 300,
+    rotation: 0,
+    scale: 1
+  });
+  
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const generateRandomStyle = useCallback(() => {
+    setPreviousShape(currentShape);
+    setIsTransitioning(true);
+    
+    // First create a shrinking effect
+    setStyle(prev => ({
+      ...prev,
+      scale: 0.5,
+      rotation: prev.rotation + 180,
+    }));
+    
+    // Then after a delay, switch the shape and expand
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
+    timeoutRef.current = setTimeout(() => {
+      const newShape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const newStyle = {
+        backgroundColor: COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)],
+        borderColor: COLOR_PALETTE[Math.floor(Math.random() * COLOR_PALETTE.length)],
+        borderWidth: Math.floor(Math.random() * 12) + 1,
+        borderStyle: BORDER_STYLES[Math.floor(Math.random() * BORDER_STYLES.length)],
+        size: Math.floor(Math.random() * 200) + 200,
+        rotation: Math.floor(Math.random() * 360),
+        scale: 1
+      };
+      
+      setCurrentShape(newShape);
+      setStyle(newStyle);
+      localStorage.setItem('alchemyStyle', JSON.stringify({...newStyle, shape: newShape}));
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 500);
+    }, 300);
+  }, [currentShape]);
+
+  const changeShapeOnly = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    setPreviousShape(currentShape);
+    setIsTransitioning(true);
+    
+    // Create shrinking effect first
+    setStyle(prev => ({
+      ...prev,
+      scale: 0.5,
+      rotation: prev.rotation + 90,
+    }));
+    
+    // After delay, change shape and expand
+    setTimeout(() => {
+      const nextShape = SHAPES[(SHAPES.indexOf(currentShape) + 1) % SHAPES.length];
+      setCurrentShape(nextShape);
+      
+      setStyle(prev => ({
+        ...prev,
+        scale: 1,
+      }));
+      
+      localStorage.setItem('alchemyStyle', JSON.stringify({...style, shape: nextShape}));
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 500);
+    }, 300);
+  }, [currentShape, style]);
+
+  // Load saved style
+  useEffect(() => {
+    const savedStyle = localStorage.getItem('alchemyStyle');
+    if (savedStyle) {
+      const parsedStyle = JSON.parse(savedStyle);
+      setStyle({
+        ...parsedStyle,
+        rotation: parsedStyle.rotation || 0,
+        scale: parsedStyle.scale || 1
+      });
+      setCurrentShape(parsedStyle.shape || 'circle');
+      setPreviousShape(parsedStyle.shape || 'circle');
+    }
+    
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  // Swipe handling
+  useEffect(() => {
+    let touchStartX = 0;
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touchEndX = e.changedTouches[0].clientX;
+      if (Math.abs(touchEndX - touchStartX) > 50) {
+        generateRandomStyle();
+      }
+    };
+
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [generateRandomStyle]);
+
+  const renderShape = () => {
+    const transitionStyle = isTransitioning 
+      ? `${EASING.easeOutBack} 0.5s` 
+      : `${EASING.easeOutElastic} 0.8s`;
+      
+    const baseClasses = "transition-all ease-in-out transform";
+    
+    const commonStyle = { 
+      backgroundColor: style.backgroundColor,
+      border: `${style.borderWidth}px ${style.borderStyle} ${style.borderColor}`,
+      width: style.size,
+      height: style.size,
+      transform: `rotate(${style.rotation}deg) scale(${style.scale})`,
+      transition: `transform ${transitionStyle}, background-color 0.5s, border 0.5s, width 0.7s, height 0.7s`,
+    };
+    
+    switch (currentShape) {
+      case 'circle':
+        return <div className={`rounded-full ${baseClasses}`} style={commonStyle} />;
+      case 'square':
+        return <div className={`${baseClasses}`} style={commonStyle} />;
+      case 'triangle':
+        return (
+          <div className={`relative ${baseClasses}`} style={{ ...commonStyle, backgroundColor: 'transparent' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <polygon
+                points="50,10 90,90 10,90"
+                fill={style.backgroundColor}
+                stroke={style.borderColor}
+                strokeWidth={style.borderWidth}
+              />
+            </svg>
+          </div>
+        );
+      case 'pentagram':
+        return (
+          <div className={`relative ${baseClasses}`} style={{ ...commonStyle, backgroundColor: 'transparent' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <polygon
+                points="50,5 61,38 98,38 67,58 78,91 50,70 22,91 33,58 2,38 39,38"
+                fill={style.backgroundColor}
+                stroke={style.borderColor}
+                strokeWidth={style.borderWidth}
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        );
+      case 'hexagram':
+        return (
+          <div className={`relative ${baseClasses}`} style={{ ...commonStyle, backgroundColor: 'transparent' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <polygon
+                points="50,5 90,80 10,80"
+                fill={style.backgroundColor}
+                stroke={style.borderColor}
+                strokeWidth={style.borderWidth}
+              />
+              <polygon
+                points="50,95 90,20 10,20"
+                fill={style.backgroundColor}
+                stroke={style.borderColor}
+                strokeWidth={style.borderWidth}
+              />
+            </svg>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main className="min-h-screen bg-[#30323dff] flex items-center justify-center p-4">
+      <div 
+        className="relative cursor-pointer"
+        onClick={generateRandomStyle}
+      >
+        <div className="relative overflow-visible flex items-center justify-center">
+          {/* Particle effects during transition */}
+          {isTransitioning && (
+            <div className="absolute inset-0 pointer-events-none">
+              {[...Array(8)].map((_, i) => (
+                <div 
+                  key={i}
+                  className="absolute w-3 h-3 rounded-full"
+                  style={{
+                    backgroundColor: style.borderColor,
+                    left: `${50 + Math.cos(i * Math.PI / 4) * 150}%`,
+                    top: `${50 + Math.sin(i * Math.PI / 4) * 150}%`,
+                    opacity: 0,
+                    transform: 'scale(0)',
+                    animation: `particle 0.8s ease-out ${i * 0.05}s`
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          
+          {renderShape()}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        
+        {/* Control Bar */}
+        <div className="absolute bottom-[-60px] left-1/2 transform -translate-x-1/2 flex gap-4">
+          <button
+            onClick={changeShapeOnly}
+            className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70 transition-colors"
+          >
+            Change Shape
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              generateRandomStyle();
+            }}
+            className="p-2 bg-black/50 text-white rounded-lg hover:bg-black/70 transition-colors"
+          >
+            Randomize All
+          </button>
+        </div>
+      </div>
+      
+      {/* Add CSS for the particle animation */}
+      <style jsx>{`
+        @keyframes particle {
+          0% {
+            opacity: 1;
+            transform: scale(0);
+          }
+          70% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.5);
+          }
+        }
+      `}</style>
+    </main>
   );
 }
