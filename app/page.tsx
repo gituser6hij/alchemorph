@@ -59,7 +59,7 @@ export default function AlchemyShapes() {
       document.exitFullscreen();
     }
   }, []);
-  
+
 
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -151,6 +151,28 @@ export default function AlchemyShapes() {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
+
+  const [isAutoChanging, setIsAutoChanging] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (isAutoChanging) {
+      intervalRef.current = setInterval(() => {
+        generateRandomStyle();
+      }, 3000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isAutoChanging, generateRandomStyle]);
+
+  const toggleAutoChange = () => {
+    setIsAutoChanging((prev) => !prev);
+  };
+
 
   // Swipe handling
   useEffect(() => {
@@ -276,14 +298,24 @@ export default function AlchemyShapes() {
 
   return (
     <main className="min-h-screen bg-[#30323dff] flex items-center justify-center p-4">
-       <button
-              className="absolute top-4 right-4 text-black px-4 py-2 rounded"
-              onClick={toggleFullScreen}
-              aria-label="Toggle fullscreen"
-              style={{ color: `var(${style.borderColor})` }} // Apply dynamic font color
-            >
-              ⛶
-            </button>
+
+      <button
+        className="absolute top-4 right-16 text-black px-4 py-2 rounded"
+        onClick={toggleAutoChange}
+        aria-label="Toggle auto-change"
+        style={{ color: `var(${style.borderColor})` }} // Apply dynamic font color
+      >
+        {isAutoChanging ? "⏹" : "▶"}
+      </button>
+
+      <button
+        className="absolute top-4 right-4 text-black px-4 py-2 rounded"
+        onClick={toggleFullScreen}
+        aria-label="Toggle fullscreen"
+        style={{ color: `var(${style.borderColor})` }} // Apply dynamic font color
+      >
+        ⛶
+      </button>
 
       <div ref={containerRef} className="relative cursor-pointer" onClick={generateRandomStyle}>
 
@@ -309,7 +341,7 @@ export default function AlchemyShapes() {
           {renderShape()}
         </div>
       </div>
-      
+
 
       <style jsx>{`
         @keyframes particle {
